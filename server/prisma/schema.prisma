@@ -1,0 +1,104 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+  status       String
+
+  createdGroups Group[] @relation("GroupCreator")
+
+  groupMembers    GroupMember[]
+  expensesPaid    Expense[]     @relation("ExpensePayer")
+  expensesCreated Expense[]     @relation("ExpenseCreator")
+
+  expenseSplits      ExpenseSplit[]
+  ledgerEntries      LedgerEntry[]  @relation("LedgerUser")
+  actedLedgerEntries LedgerEntry[]  @relation("LedgerActor")
+}
+
+model Group {
+  id          String   @id @default(uuid())
+  name        String
+  createdById String
+  currency    String
+  createdAt   DateTime @default(now())
+  status      String
+
+  createdBy User @relation("GroupCreator", fields: [createdById], references: [id])
+
+  groupMembers  GroupMember[]
+  expenses      Expense[]
+  ledgerEntries LedgerEntry[]
+}
+
+model GroupMember {
+  id       String   @id @default(uuid())
+  groupId  String
+  userId   String
+  role     String
+  joinedAt DateTime @default(now())
+
+  group            Group  @relation(fields: [groupId], references: [id])
+  user             User   @relation(fields: [userId], references: [id])
+  membershipStatus String
+
+  @@unique([groupId, userId])
+}
+
+model Expense {
+  id           String   @id @default(uuid())
+  groupId      String
+  paidByUserId String
+  amountMinor  BigInt
+  description  String
+  occurredAt   DateTime @default(now())
+  createdById  String
+  createdAt    DateTime @default(now())
+  status       String
+
+  group   Group @relation(fields: [groupId], references: [id])
+  paidBy  User  @relation("ExpensePayer", fields: [paidByUserId], references: [id])
+  creator User  @relation("ExpenseCreator", fields: [createdById], references: [id])
+
+  splits ExpenseSplit[]
+}
+
+model ExpenseSplit {
+  id                  String  @id @default(uuid())
+  expenseId           String
+  userId              String
+  shareMinor          BigInt
+  splitMethod         String
+  calculationMetadata Json?
+  user                User    @relation(fields: [userId], references: [id])
+  expense             Expense @relation(fields: [expenseId], references: [id])
+
+  @@unique([expenseId, userId])
+}
+
+model LedgerEntry {
+  id          String   @id @default(uuid())
+  groupId     String
+  sourceType  String
+  sourceId    String
+  userId      String
+  amountMinor BigInt
+  entryType   String
+  createdAt   DateTime @default(now())
+  actorId     String
+  reason      String
+
+  group Group @relation(fields: [groupId], references: [id])
+  user  User  @relation("LedgerUser", fields: [userId], references: [id])
+  actor User  @relation("LedgerActor", fields: [actorId], references: [id])
+}
